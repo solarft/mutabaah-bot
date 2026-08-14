@@ -8,6 +8,8 @@ import (
 	"github.com/joho/godotenv"
 	tele "gopkg.in/telebot.v4"
 
+	"github.com/solarft/mutabaah-bot/internal/appwrite"
+	"github.com/solarft/mutabaah-bot/internal/config"
 	"github.com/solarft/mutabaah-bot/internal/handlers"
 )
 
@@ -16,6 +18,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
+	config.Init()
 
 	pref := tele.Settings{
 		Token:  os.Getenv("TOKEN"),
@@ -28,6 +31,7 @@ func main() {
 		return
 	}
 
+	appwrite.Init()
 	handlers.HandleButtons(b)
 
 	b.Start()

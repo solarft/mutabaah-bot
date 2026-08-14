@@ -1,9 +1,10 @@
 package handlers
 
 import (
-	"github.com/appwrite/sdk-for-go/id"
+	"errors"
+	"fmt"
+
 	"github.com/solarft/mutabaah-bot/internal/appwrite"
-	"github.com/solarft/mutabaah-bot/internal/config"
 	tele "gopkg.in/telebot.v4"
 )
 
@@ -15,7 +16,7 @@ func HandleButtons(b *tele.Bot) {
 
 		// Reply buttons.
 		btnHelp     = menu.Text("ℹ Help")
-		btnSettings = menu.Text("⚙ Settingscompiler: undefined: menu.MenuInit")
+		btnSettings = menu.Text("⚙ Settings")
 
 		// Inline buttons.
 		//
@@ -24,7 +25,7 @@ func HandleButtons(b *tele.Bot) {
 		//
 		// Make sure Unique stays unique as per button kind
 		// since it's required for callback routing to work.
-		//
+		// ^^ This is just copy-pasted hence the comments. i'll work on the buttons later
 		btnPrev = selector.Data("⬅", "prev")
 		btnNext = selector.Data("➡", "next")
 	)
@@ -38,20 +39,23 @@ func HandleButtons(b *tele.Bot) {
 	)
 
 	b.Handle("/start", func(c tele.Context) error {
-		_, err := appwrite.TablesDB().CreateRow(
-			config.DatabaseID,
-			config.UsersTableID,
-			id.Unique(),
-			map[string]interface{}{
-				"data":              "{}",
-				"telegram_id":       c.Sender().ID,
-				"telegram_username": c.Sender().Username,
-			})
+		username := c.Sender().Username
+		if username == "" {
+			return c.Send("Please set a Telegram username in your account settings, then try again.", menu)
+		}
+
+		data, err := appwrite.GetData(username)
 		if err != nil {
+			if errors.Is(err, appwrite.ErrNotFound) {
+				return c.Send("Your username was not found. Please put your username in the website to finish account creation.", menu)
+			}
 			return c.Send("Error: " + err.Error())
 		}
-		response := "Hello " + c.Sender().Username + "! You can go back to the website to finish account creation."
-		return c.Send(response, menu)
+
+		if err := appwrite.SetTelegramID(username, c.Sender().ID); err != nil {
+			return c.Send("Error: " + err.Error())
+		}
+		return c.Send(fmt.Sprintf("Hello @%s!\nYour data: %v", username, data), menu)
 	})
 
 	// On reply button pressed (message)
