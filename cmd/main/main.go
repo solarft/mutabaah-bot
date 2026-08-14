@@ -7,6 +7,8 @@ import (
 
 	"github.com/joho/godotenv"
 	tele "gopkg.in/telebot.v4"
+
+	"github.com/solarft/mutabaah-bot/internal/handlers"
 )
 
 func main() {
@@ -26,48 +28,7 @@ func main() {
 		return
 	}
 
-	var (
-		// Universal markup builders.
-		menu     = &tele.ReplyMarkup{ResizeKeyboard: true}
-		selector = &tele.ReplyMarkup{}
-
-		// Reply buttons.
-		btnHelp     = menu.Text("ℹ Help")
-		btnSettings = menu.Text("⚙ Settings")
-
-		// Inline buttons.
-		//
-		// Pressing it will cause the client to
-		// send the bot a callback.
-		//
-		// Make sure Unique stays unique as per button kind
-		// since it's required for callback routing to work.
-		//
-		btnPrev = selector.Data("⬅", "prev")
-		btnNext = selector.Data("➡", "next")
-	)
-
-	menu.Reply(
-		menu.Row(btnHelp),
-		menu.Row(btnSettings),
-	)
-	selector.Inline(
-		selector.Row(btnPrev, btnNext),
-	)
-
-	b.Handle("/start", func(c tele.Context) error {
-		return c.Send("Hello!", menu)
-	})
-
-	// On reply button pressed (message)
-	b.Handle(&btnHelp, func(c tele.Context) error {
-		return c.Edit("Here is some help: ...")
-	})
-
-	// On inline button pressed (callback)
-	b.Handle(&btnPrev, func(c tele.Context) error {
-		return c.Respond()
-	})
+	handlers.HandleButtons(b)
 
 	b.Start()
 }
