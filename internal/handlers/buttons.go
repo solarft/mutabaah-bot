@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/solarft/mutabaah-bot/internal/appwrite"
 	tele "gopkg.in/telebot.v4"
@@ -15,8 +16,10 @@ func HandleButtons(b *tele.Bot) {
 		selector = &tele.ReplyMarkup{}
 
 		// Reply buttons.
-		btnHelp     = menu.Text("ℹ Help")
-		btnSettings = menu.Text("⚙ Settings")
+		btnHelp       = menu.Text("ℹ Help")
+		btnSettings   = menu.Text("⚙ Settings")
+		btnStats      = menu.Text("Stats")
+		btnListSunnah = menu.Text("List Sunnah Logs")
 
 		// Inline buttons.
 		//
@@ -31,8 +34,8 @@ func HandleButtons(b *tele.Bot) {
 	)
 
 	menu.Reply(
-		menu.Row(btnHelp),
-		menu.Row(btnSettings),
+		menu.Row(btnHelp, btnSettings),
+		menu.Row(btnStats, btnListSunnah),
 	)
 	selector.Inline(
 		selector.Row(btnPrev, btnNext),
@@ -44,7 +47,11 @@ func HandleButtons(b *tele.Bot) {
 			return c.Send("Please set a Telegram username in your account settings, then try again.", menu)
 		}
 
-		data, err := appwrite.GetData(username)
+		if err := appwrite.SetTelegramID(username, c.Sender().ID); err != nil {
+			return c.Send("Error: " + err.Error())
+		}
+
+		data, err := appwrite.GetData(c.Sender().ID)
 		if err != nil {
 			if errors.Is(err, appwrite.ErrNotFound) {
 				return c.Send("Your username was not found. Please put your username in the website to finish account creation.", menu)
@@ -52,15 +59,43 @@ func HandleButtons(b *tele.Bot) {
 			return c.Send("Error: " + err.Error())
 		}
 
-		if err := appwrite.SetTelegramID(username, c.Sender().ID); err != nil {
-			return c.Send("Error: " + err.Error())
-		}
 		return c.Send(fmt.Sprintf("Hello @%s!\nYour data: %v", username, data), menu)
 	})
 
 	// On reply button pressed (message)
 	b.Handle(&btnHelp, func(c tele.Context) error {
 		return c.Edit("Here is some help: ...")
+	})
+
+	b.Handle(&btnStats, func(c tele.Context) error {
+		data, err := appwrite.GetData(c.Sender().ID)
+		if err != nil {
+			if errors.Is(err, appwrite.ErrNotFound) {
+				return c.Send("Your username was not found. Please put your username in the website to finish account creation.", menu)
+			}
+			return c.Send("Error: " + err.Error())
+		}
+
+		return c.Send(fmt.Sprintf("data:\n %v", data))
+	})
+
+	b.Handle(&btnListSunnah, func(c tele.Context) error {
+		logs, err := appwrite.ListSunnahLogs(c.Sender().ID)
+		if err != nil {
+			return c.Send("Error: " + err.Error())
+		}
+		if len(logs) == 0 {
+			return c.Send("No sunnah logs found.", menu)
+		}
+
+		var sb strings.Builder
+		for _, log := range logs {
+			fmt.Fprintf(&sb, "%s\n", log.Date)
+			for i, item := range log.Items {
+				fmt.Fprintf(&sb, "	%d. %s\n", i+1, item)
+			}
+		}
+		return c.Send(sb.String(), menu)
 	})
 
 	// On inline button pressed (callback)
