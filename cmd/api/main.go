@@ -22,6 +22,7 @@ func main() {
 	}
 
 	if port := os.Getenv("PORT"); port != "" {
+		log.Println("Using webhook mode")
 		pref.Synchronous = true
 		pref.Poller = &tele.Webhook{
 			Listen:      ":" + port,
@@ -29,6 +30,7 @@ func main() {
 			SecretToken: os.Getenv("WEBHOOK_SECRET"),
 		}
 	} else {
+		log.Println("Using long polling mode")
 		pref.Poller = &tele.LongPoller{Timeout: 10 * time.Second}
 	}
 
@@ -39,5 +41,6 @@ func main() {
 
 	appwrite.Init()
 	handlers.HandleButtons(b)
+	log.Println("Bot started")
 	b.Start()
 }
