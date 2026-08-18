@@ -1,9 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/solarft/mutabaah-bot/internal/appwrite"
 	tele "gopkg.in/telebot.v4"
@@ -43,6 +48,64 @@ func HandleButtons(b *tele.Bot) {
 
 	b.Handle("/ping", func(c tele.Context) error {
 		return c.Send("Pong!")
+	})
+
+	b.Handle("/debug", func(c tele.Context) error {
+		var sb strings.Builder
+
+		fmt.Fprintf(&sb, "Appwrite endpoint: %s\n", os.Getenv("APPWRITE_ENDPOINT"))
+
+		lookup := func(name, host string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+			defer cancel()
+			ips, err := net.DefaultResolver.LookupHost(ctx, host)
+			if err != nil {
+				fmt.Fprintf(&sb, "  %s lookup: ERROR %v\n", name, err)
+			} else {
+				fmt.Fprintf(&sb, "  %s lookup: OK %v\n", name, ips)
+			}
+		}
+
+		fmt.Fprintf(&sb, "Default resolver:\n")
+		lookup("appwrite.network", "appwrite.network")
+		lookup("api.telegram.org", "api.telegram.org")
+
+		alt := &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, _ string) (net.Conn, error) {
+				d := net.Dialer{Timeout: 5 * time.Second}
+				return d.DialContext(ctx, network, "1.1.1.1:53")
+			},
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+		ips, err := alt.LookupHost(ctx, "appwrite.network")
+		cancel()
+		if err != nil {
+			fmt.Fprintf(&sb, "Resolver via 1.1.1.1:53:\n  appwrite.network: ERROR %v\n", err)
+		} else {
+			fmt.Fprintf(&sb, "Resolver via 1.1.1.1:53:\n  appwrite.network: OK %v\n", ips)
+		}
+
+		conn, err := net.DialTimeout("tcp", "151.101.3.52:443", 5*time.Second)
+		if err != nil {
+			fmt.Fprintf(&sb, "dial 151.101.3.52:443: ERROR %v\n", err)
+		} else {
+			conn.Close()
+			fmt.Fprintf(&sb, "dial 151.101.3.52:443: OK\n")
+		}
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		for _, u := range []string{"https://appwrite.network", "https://api.telegram.org"} {
+			resp, err := client.Get(u)
+			if err != nil {
+				fmt.Fprintf(&sb, "GET %s: ERROR %v\n", u, err)
+			} else {
+				fmt.Fprintf(&sb, "GET %s: %d\n", u, resp.StatusCode)
+				resp.Body.Close()
+			}
+		}
+
+		return c.Send(sb.String())
 	})
 
 	b.Handle("/start", func(c tele.Context) error {
