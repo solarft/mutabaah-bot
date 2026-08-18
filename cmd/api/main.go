@@ -24,7 +24,7 @@ func main() {
 	if os.Getenv("VERCEL") != "" {
 		port := os.Getenv("PORT")
 		log.Println("Using webhook mode")
-		pref.Synchronous = true
+		//	pref.Synchronous = true
 		pref.Poller = &tele.Webhook{
 			Listen:      ":" + port,
 			Endpoint:    &tele.WebhookEndpoint{PublicURL: "https://" + os.Getenv("VERCEL_URL") + "/webhook"},
