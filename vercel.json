@@ -1,3 +1,4 @@
 {
-  "framework": "go"
+  "framework": "go",
+  "regions":  ["sin1"]
 }
