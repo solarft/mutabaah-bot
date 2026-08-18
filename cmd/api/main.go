@@ -21,7 +21,8 @@ func main() {
 		Token: os.Getenv("TOKEN"),
 	}
 
-	if port := os.Getenv("PORT"); port != "" {
+	if os.Getenv("VERCEL") != "" {
+		port := os.Getenv("PORT")
 		log.Println("Using webhook mode")
 		pref.Synchronous = true
 		pref.Poller = &tele.Webhook{
