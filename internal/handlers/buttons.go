@@ -41,6 +41,10 @@ func HandleButtons(b *tele.Bot) {
 		selector.Row(btnPrev, btnNext),
 	)
 
+	b.Handle("/ping", func(c tele.Context) error {
+		return c.Send("Pong!")
+	})
+
 	b.Handle("/start", func(c tele.Context) error {
 		username := c.Sender().Username
 		if username == "" {
