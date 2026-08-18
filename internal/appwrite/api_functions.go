@@ -3,6 +3,7 @@ package appwrite
 import (
 	"encoding/json"
 	"errors"
+	"log"
 
 	"github.com/appwrite/sdk-for-go/query"
 	"github.com/solarft/mutabaah-bot/internal/config"
@@ -53,6 +54,18 @@ func ParseList(raw json.RawMessage) ([]string, error) {
 		return nil, errors.New("array string contains invalid JSON")
 	}
 	return list, nil
+}
+
+// Prewarm opens a connection to Appwrite at startup so the transport
+// pool reuses it instead of opening new connections mid-request.
+func Prewarm() {
+	_, err := tablesDB.ListRows(
+		config.DatabaseID, config.UsersTableID,
+		tablesDB.WithListRowsQueries([]string{query.Equal("telegram_id", 0)}),
+	)
+	if err != nil {
+		log.Printf("appwrite prewarm: %v", err)
+	}
 }
 
 // GetData returns the data column for the row matching telegram_username.

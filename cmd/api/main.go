@@ -41,6 +41,10 @@ func main() {
 	}
 
 	appwrite.Init()
+	if os.Getenv("VERCEL") != "" {
+		log.Println("Pre-warming Appwrite connection")
+		appwrite.Prewarm()
+	}
 	handlers.HandleButtons(b)
 	log.Println("Bot started")
 	b.Start()
