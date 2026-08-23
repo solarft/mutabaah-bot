@@ -26,7 +26,7 @@ func InitSheets() {
 }
 
 func ReadSheet(start string, end string) {
-	readRange := "Class Data!A2:E"
+	readRange := "Class Data!" + start + ":" + end
 	resp, err := srv.Spreadsheets.Values.Get(SpreadsheetID, readRange).Do()
 	if err != nil {
 		log.Fatalf("Unable to retrieve data from sheet: %v", err)

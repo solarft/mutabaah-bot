@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"time"
 
 	"github.com/appwrite/sdk-for-go/query"
 	"github.com/solarft/mutabaah-bot/internal/config"
@@ -91,6 +92,29 @@ func GetData(telegramID int64) (map[string]any, error) {
 	return parseData(payload.Rows[0].Data)
 }
 
+func GetUserID(telegramID int64) (string, error) {
+	rows, err := tablesDB.ListRows(
+		config.DatabaseID, config.UsersTableID,
+		tablesDB.WithListRowsQueries([]string{
+			query.Equal("telegram_id", telegramID),
+		}),
+	)
+	if err != nil {
+		return "", err
+	}
+
+	var payload Payload
+
+	if err := rows.Decode(&payload); err != nil {
+		return "", err
+	}
+	if len(payload.Rows) == 0 {
+		return "", ErrNotFound
+	}
+
+	return payload.Rows[0].ID, nil
+}
+
 func ListSunnahLogs(telegramID int64) ([]SunnahLog, error) {
 	rows, err := tablesDB.ListRows(
 		config.DatabaseID, config.SunnahLogsTableID,
@@ -125,8 +149,48 @@ func ListSunnahLogs(telegramID int64) ([]SunnahLog, error) {
 	return logs, nil
 }
 
-// SetData updates the data column on all rows matching telegram_username.
-func SetData(telegramID string, data map[string]any) error {
+func SaveSunnahSelections(telegramID int64, items []string) ([]string, error) {
+	data, err := json.Marshal(items)
+	if err != nil {
+		return nil, err
+	}
+
+	userID, err := GetUserID(telegramID)
+	if err != nil {
+		return nil, err
+	}
+
+	date := time.Now().Format("20060102")
+	rowID := "sun_" + userID + "_" + date
+
+	_, err = tablesDB.UpdateRow(
+		config.DatabaseID, config.SunnahLogsTableID,
+		rowID,
+		tablesDB.WithUpdateRowData(map[string]any{
+			"data": string(data),
+		}),
+	)
+	if err != nil {
+		_, err = tablesDB.CreateRow(
+			config.DatabaseID, config.SunnahLogsTableID,
+			rowID,
+			map[string]any{
+				"$id":         rowID,
+				"data":        string(data),
+				"date":        date,
+				"telegram_id": telegramID,
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return items, nil
+}
+
+// SetData updates the data column on all rows matching telegram_id.
+func SetData(telegramID int64, data map[string]any) error {
 	raw, err := json.Marshal(data)
 	if err != nil {
 		return err

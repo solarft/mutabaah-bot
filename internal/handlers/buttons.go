@@ -14,17 +14,93 @@ import (
 	tele "gopkg.in/telebot.v4"
 )
 
+var amalan = []string{
+	"Qiamullail",
+	"Ma'thurat",
+	"Dhuha Prayer",
+	"Solat Berjemaah",
+	"Solat Sunat Rawatib",
+	"Read 1 Juz of Quran",
+	"Murajaah Quran",
+	"Istighfar 100×",
+	"Selawat 100×",
+	"Muhasabah Diri",
+}
+
+var userSelections = make(map[int64][]string)
+
+func buildSunnahChecklist(selected []string) (string, *tele.ReplyMarkup) {
+	completed := make(map[string]bool)
+	for _, item := range selected {
+		completed[item] = true
+	}
+
+	var sb strings.Builder
+	sb.WriteString("Please select which deeds you have done:\nDate: ")
+	date := time.Now().Format(time.DateOnly)
+	sb.WriteString(date)
+	sb.WriteString("\n\n")
+
+	markup := &tele.ReplyMarkup{}
+	var rows []tele.Row
+	for _, name := range amalan {
+		done := completed[name]
+		statusEmoji := "❌ "
+		if done {
+			statusEmoji = "✅ "
+		}
+
+		sb.WriteString(statusEmoji)
+		sb.WriteString(name)
+		sb.WriteString("\n")
+
+		btn := markup.Data(statusEmoji+name, "toggle_sunnah", name)
+		rows = append(rows, markup.Row(btn))
+	}
+
+	submitBtn := markup.Data("Submit", "submit_sunnah")
+	rows = append(rows, markup.Row(submitBtn))
+
+	markup.Inline(rows...)
+	return sb.String(), markup
+}
+
+func buildChecklistText(selected []string) string {
+	completed := make(map[string]bool)
+	for _, item := range selected {
+		completed[item] = true
+	}
+
+	var sb strings.Builder
+	sb.WriteString("Please select which deeds you have done:\nDate: ")
+	date := time.Now().Format(time.DateOnly)
+	sb.WriteString(date)
+	sb.WriteString("\n\n")
+	for _, name := range amalan {
+		statusEmoji := "❌ "
+		if completed[name] {
+			statusEmoji = "✅ "
+		}
+		sb.WriteString(statusEmoji)
+		sb.WriteString(name)
+		sb.WriteString("\n")
+	}
+	return sb.String()
+}
+
 func HandleButtons(b *tele.Bot) {
 	var (
 		// Universal markup builders.
-		menu     = &tele.ReplyMarkup{ResizeKeyboard: true}
-		selector = &tele.ReplyMarkup{}
+		menu           = &tele.ReplyMarkup{ResizeKeyboard: true}
+		selector       = &tele.ReplyMarkup{}
+		sunnahSelector = &tele.ReplyMarkup{}
 
 		// Reply buttons.
 		btnHelp       = menu.Text("ℹ Help")
 		btnSettings   = menu.Text("⚙ Settings")
 		btnStats      = menu.Text("Stats")
 		btnListSunnah = menu.Text("List Sunnah Logs")
+		btnAddSunnah  = menu.Text("Add Sunnah")
 
 		// Inline buttons.
 		//
@@ -39,12 +115,15 @@ func HandleButtons(b *tele.Bot) {
 	)
 
 	menu.Reply(
+		menu.Row(btnAddSunnah),
 		menu.Row(btnHelp, btnSettings),
 		menu.Row(btnStats, btnListSunnah),
 	)
 	selector.Inline(
 		selector.Row(btnPrev, btnNext),
 	)
+
+	sunnahBtnHandler := sunnahSelector.Data("", "toggle_sunnah")
 
 	b.Handle("/ping", func(c tele.Context) error {
 		return c.Send("Pong!")
@@ -131,7 +210,7 @@ func HandleButtons(b *tele.Bot) {
 
 	// On reply button pressed (message)
 	b.Handle(&btnHelp, func(c tele.Context) error {
-		return c.Edit("Here is some help: ...")
+		return c.Send("Here is some help: ...", menu)
 	})
 
 	b.Handle(&btnStats, func(c tele.Context) error {
@@ -144,6 +223,56 @@ func HandleButtons(b *tele.Bot) {
 		}
 
 		return c.Send(fmt.Sprintf("data:\n %v", data))
+	})
+
+	b.Handle(&btnAddSunnah, func(c tele.Context) error {
+		logs, err := appwrite.ListSunnahLogs(c.Sender().ID)
+		if err != nil {
+			fmt.Printf("Failed to get sunnah log: %v\n", err)
+		}
+
+		var current []string
+		if len(logs) > 0 {
+			current = logs[len(logs)-1].Items
+		}
+		userSelections[c.Sender().ID] = current
+
+		text, markup := buildSunnahChecklist(current)
+		return c.Send(text, markup)
+	})
+
+	b.Handle(&sunnahBtnHandler, func(c tele.Context) error {
+		sel := userSelections[c.Sender().ID]
+		activity := c.Data()
+
+		found := -1
+		for i, item := range sel {
+			if item == activity {
+				found = i
+				break
+			}
+		}
+		if found >= 0 {
+			sel = append(sel[:found], sel[found+1:]...)
+		} else {
+			sel = append(sel, activity)
+		}
+		userSelections[c.Sender().ID] = sel
+
+		text, markup := buildSunnahChecklist(sel)
+		return c.Edit(text, markup)
+	})
+
+	submitBtnHandler := sunnahSelector.Data("Submit", "submit_sunnah")
+	b.Handle(&submitBtnHandler, func(c tele.Context) error {
+		sel := userSelections[c.Sender().ID]
+		delete(userSelections, c.Sender().ID)
+
+		if _, err := appwrite.SaveSunnahSelections(c.Sender().ID, sel); err != nil {
+			return c.Send("Error saving: " + err.Error())
+		}
+
+		return c.Edit(buildChecklistText(sel))
 	})
 
 	b.Handle(&btnListSunnah, func(c tele.Context) error {
