@@ -160,7 +160,9 @@ func SaveSunnahSelections(telegramID int64, items []string) ([]string, error) {
 		return nil, err
 	}
 
-	date := time.Now().Format("20060102")
+	now := time.Now()
+	date := now.Format("20060102")
+	dateWithDashes := now.Format(time.DateOnly)
 	rowID := "sun_" + userID + "_" + date
 
 	_, err = tablesDB.UpdateRow(
@@ -176,8 +178,9 @@ func SaveSunnahSelections(telegramID int64, items []string) ([]string, error) {
 			rowID,
 			map[string]any{
 				"$id":         rowID,
+				"userId":      userID,
 				"data":        string(data),
-				"date":        date,
+				"date":        dateWithDashes,
 				"telegram_id": telegramID,
 			},
 		)

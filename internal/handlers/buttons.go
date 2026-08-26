@@ -18,13 +18,13 @@ var amalan = []string{
 	"Qiamullail",
 	"Ma'thurat",
 	"Dhuha Prayer",
-	"Solat Berjemaah",
+	"Congregational prayer",
 	"Solat Sunat Rawatib",
 	"Read 1 Juz of Quran",
 	"Murajaah Quran",
 	"Istighfar 100×",
 	"Selawat 100×",
-	"Muhasabah Diri",
+	"Self-Reflection",
 }
 
 var userSelections = make(map[int64][]string)
@@ -272,7 +272,10 @@ func HandleButtons(b *tele.Bot) {
 			return c.Send("Error saving: " + err.Error())
 		}
 
-		return c.Edit(buildChecklistText(sel))
+		if err := c.Edit(buildChecklistText(sel)); err != nil {
+			return err
+		}
+		return c.Send("Done! Use the menu below to continue.", menu)
 	})
 
 	b.Handle(&btnListSunnah, func(c tele.Context) error {
