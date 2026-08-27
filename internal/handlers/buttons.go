@@ -298,6 +298,6 @@ func HandleButtons(b *tele.Bot) {
 	})
 
 	b.Handle(&btnAbout, func(c tele.Context) error {
-		return c.Send("This is a Telegram bot that is linked to Vega's [IQRA Tracker](https://iqratracker.vercel.app/). It is under the Bureau of Quran & Thaqafah. It is also used to log research data to be used in the International Conference on Future & Sustainable Education (ICFSE). The more data, the better. So please log your sunnah streaks every day. The source code for the Telegram bot can be found [here](https://github.com/solarft/mutabaah-bot)", menu)
+		return c.Send("This is a Telegram bot that is linked to Vega's [IQRA Tracker](https://iqratracker.vercel.app/). It is under the Bureau of Quran & Thaqafah. It is also used to log research data to be used in the International Conference on Future & Sustainable Education (ICFSE). The more data, the better. So please log your sunnah streaks every day. The source code for the Telegram bot can be found [here](https://github.com/solarft/mutabaah-bot)", menu, tele.ModeMarkdown)
 	})
 }
