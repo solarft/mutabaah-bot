@@ -97,7 +97,7 @@ func HandleButtons(b *tele.Bot) {
 
 		// Reply buttons.
 		btnHelp       = menu.Text("ℹ Help")
-		btnSettings   = menu.Text("⚙ Settings")
+		btnAbout      = menu.Text("⚙ About")
 		btnStats      = menu.Text("Stats")
 		btnListSunnah = menu.Text("List Sunnah Logs")
 		btnAddSunnah  = menu.Text("Add Sunnah")
@@ -116,7 +116,7 @@ func HandleButtons(b *tele.Bot) {
 
 	menu.Reply(
 		menu.Row(btnAddSunnah),
-		menu.Row(btnHelp, btnSettings),
+		menu.Row(btnHelp, btnAbout),
 		menu.Row(btnStats, btnListSunnah),
 	)
 	selector.Inline(
@@ -210,7 +210,7 @@ func HandleButtons(b *tele.Bot) {
 
 	// On reply button pressed (message)
 	b.Handle(&btnHelp, func(c tele.Context) error {
-		return c.Send("Here is some help: ...", menu)
+		return c.Send("Nanti bagitau Ibrahim tolong buat isi untuk help ni. tapi ada buttons2 kat bawah tu kan. jadi boleh guna lah", menu)
 	})
 
 	b.Handle(&btnStats, func(c tele.Context) error {
@@ -297,8 +297,7 @@ func HandleButtons(b *tele.Bot) {
 		return c.Send(sb.String(), menu)
 	})
 
-	// On inline button pressed (callback)
-	b.Handle(&btnPrev, func(c tele.Context) error {
-		return c.Respond()
+	b.Handle(&btnAbout, func(c tele.Context) error {
+		return c.Send("This is a Telegram bot that is linked to Vega's [IQRA Tracker](https://iqratracker.vercel.app/). It is under the Bureau of Quran & Thaqafah. It is also used to log research data to be used in the International Conference on Future & Sustainable Education (ICFSE). The more data, the better. So please log your sunnah streaks every day. The source code for the Telegram bot can be found [here](https://github.com/solarft/mutabaah-bot)", menu)
 	})
 }
