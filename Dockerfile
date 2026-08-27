@@ -19,4 +19,6 @@ WORKDIR /app
 
 COPY --from=builder /app/bot .
 
+EXPOSE 3000
+
 CMD ["./bot"]

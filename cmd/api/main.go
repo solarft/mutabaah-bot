@@ -21,13 +21,16 @@ func main() {
 		Token: os.Getenv("TOKEN"),
 	}
 
-	if os.Getenv("VERCEL") != "" {
+	if os.Getenv("WEBHOOK_MODE") == "1" {
 		port := os.Getenv("PORT")
+		if port == "" {
+			port = "3000"
+		}
 		log.Println("Using webhook mode")
 		//	pref.Synchronous = true
 		pref.Poller = &tele.Webhook{
 			Listen:      ":" + port,
-			Endpoint:    &tele.WebhookEndpoint{PublicURL: "https://" + os.Getenv("VERCEL_URL") + "/webhook"},
+			Endpoint:    &tele.WebhookEndpoint{PublicURL: os.Getenv("WEBHOOK_URL")},
 			SecretToken: os.Getenv("WEBHOOK_SECRET"),
 		}
 	} else {
