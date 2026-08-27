@@ -27,11 +27,11 @@ func main() {
 			port = "3000"
 		}
 		log.Println("Using webhook mode")
-		//	pref.Synchronous = true
 		pref.Poller = &tele.Webhook{
 			Listen:      ":" + port,
 			Endpoint:    &tele.WebhookEndpoint{PublicURL: os.Getenv("WEBHOOK_URL")},
 			SecretToken: os.Getenv("WEBHOOK_SECRET"),
+			IgnoreSetWebhook: true,
 		}
 	} else {
 		log.Println("Using long polling mode")
@@ -44,11 +44,32 @@ func main() {
 	}
 
 	appwrite.Init()
-	if os.Getenv("VERCEL") != "" {
-		log.Println("Pre-warming Appwrite connection")
-		appwrite.Prewarm()
-	}
 	handlers.HandleButtons(b)
+
+	// Start the bot in a goroutine so the HTTP server begins listening
+	// immediately. This is critical on Cloud Run / Vercel where the
+	// platform must see the server listening on PORT within the startup
+	// timeout, otherwise it returns 502.
+	go b.Start()
+
+	// Set the webhook with Telegram. With IgnoreSetWebhook=true above,
+	// Poll() won't call SetWebhook again, so the HTTP server was
+	// already listening when this runs.
+	if webhook, ok := pref.Poller.(*tele.Webhook); ok {
+		if err := b.SetWebhook(webhook); err != nil {
+			log.Printf("Warning: SetWebhook failed: %v", err)
+		}
+	}
+
+	log.Printf("Env check: APPWRITE_ENDPOINT=%v, APPWRITE_PROJECT_ID=%v, APPWRITE_KEY=%v, DATABASE_ID=%v, USERS_TABLE_ID=%v, SUNNAH_LOGS_TABLE_ID=%v",
+		os.Getenv("APPWRITE_ENDPOINT") != "",
+		os.Getenv("APPWRITE_PROJECT_ID") != "",
+		os.Getenv("APPWRITE_KEY") != "",
+		os.Getenv("DATABASE_ID") != "",
+		os.Getenv("USERS_TABLE_ID") != "",
+		os.Getenv("SUNNAH_LOGS_TABLE_ID") != "",
+	)
+
 	log.Println("Bot started")
-	b.Start()
+	select {} // block forever
 }
