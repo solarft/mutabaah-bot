@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/joho/godotenv"
 	tele "gopkg.in/telebot.v4"
@@ -28,9 +29,9 @@ func main() {
 		}
 		log.Println("Using webhook mode")
 		pref.Poller = &tele.Webhook{
-			Listen:      ":" + port,
-			Endpoint:    &tele.WebhookEndpoint{PublicURL: os.Getenv("WEBHOOK_URL")},
-			SecretToken: os.Getenv("WEBHOOK_SECRET"),
+			Listen:           ":" + port,
+			Endpoint:         &tele.WebhookEndpoint{PublicURL: os.Getenv("WEBHOOK_URL")},
+			SecretToken:      os.Getenv("WEBHOOK_SECRET"),
 			IgnoreSetWebhook: true,
 		}
 	} else {
