@@ -3,9 +3,10 @@ package config
 import "os"
 
 var (
-	DatabaseID        string
-	UsersTableID      string
-	SunnahLogsTableID string
+	DatabaseID          string
+	UsersTableID        string
+	SunnahLogsTableID   string
+	MurajaahLogsTableID string
 )
 
 func Init() {
@@ -22,5 +23,10 @@ func Init() {
 	SunnahLogsTableID = os.Getenv("SUNNAH_LOGS_TABLE_ID")
 	if SunnahLogsTableID == "" {
 		panic("SUNNAH_LOGS_TABLE_ID is not set!")
+	}
+
+	MurajaahLogsTableID = os.Getenv("MURAJAAH_LOGS_TABLE_ID")
+	if MurajaahLogsTableID == "" {
+		panic("MURAJAAH_LOGS_TABLE_ID is not set!")
 	}
 }

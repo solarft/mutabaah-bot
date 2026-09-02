@@ -47,6 +47,8 @@ func main() {
 	appwrite.Init()
 	handlers.HandleButtons(b)
 
+	go scheduleDaily(appwrite.LogMurajaah)
+
 	// Start the bot in a goroutine so the HTTP server begins listening
 	// immediately. This is critical on Cloud Run / Vercel where the
 	// platform must see the server listening on PORT within the startup
@@ -73,4 +75,17 @@ func main() {
 
 	log.Println("Bot started")
 	select {} // block forever
+}
+
+func scheduleDaily(f func() error) {
+	go func() {
+		for {
+			now := time.Now()
+			next := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+			time.Sleep(next.Sub(now))
+			if err := f(); err != nil {
+				log.Printf("daily task error: %v", err)
+			}
+		}
+	}()
 }

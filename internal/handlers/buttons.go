@@ -129,6 +129,13 @@ func HandleButtons(b *tele.Bot) {
 		return c.Send("Pong!")
 	})
 
+	b.Handle("/snapshot", func(c tele.Context) error {
+		if err := appwrite.LogMurajaah(); err != nil {
+			return c.Send("Snapshot failed: " + err.Error())
+		}
+		return c.Send("Murajaah snapshot complete.")
+	})
+
 	b.Handle("/debug", func(c tele.Context) error {
 		var sb strings.Builder
 

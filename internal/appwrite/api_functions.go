@@ -26,6 +26,13 @@ type SunnahLog struct {
 	Items []string
 }
 
+type MurajaahPayload struct {
+	PageRatings     json.RawMessage `json:"murajaahPageRatings"`
+	TasmikRatings   json.RawMessage `json:"murajaahTasmikRatings"`
+	RepetitionTicks json.RawMessage `json:"murajaahRepetitionTicks"`
+	Segregation     json.RawMessage `json:"murajaahSegregation"`
+}
+
 // decodes json -> map[string]any
 func parseData(raw json.RawMessage) (map[string]any, error) {
 	var data map[string]any
@@ -190,6 +197,57 @@ func SaveSunnahSelections(telegramID int64, items []string) ([]string, error) {
 	}
 
 	return items, nil
+}
+
+func LogMurajaah() error {
+	res, err := tablesDB.ListRows(config.DatabaseID, config.UsersTableID)
+	if err != nil {
+		return err
+	}
+
+	yesterday := time.Now().AddDate(0, 0, -1)
+	dateCompact := yesterday.Format("20060102")
+	dateDisplay := yesterday.Format(time.DateOnly)
+
+	for _, row := range res.Rows {
+		var item Row
+		item.ID = row.Id
+		if err := row.Decode(&item); err != nil {
+			continue
+		}
+
+		var payload MurajaahPayload
+		if err := json.Unmarshal(item.Data, &payload); err != nil {
+			continue
+		}
+
+		var user struct {
+			ID         string `json:"$id"`
+			TelegramID int64  `json:"telegram_id"`
+		}
+		if err := row.Decode(&user); err != nil {
+			continue
+		}
+
+		rowid := "mur_" + user.ID + "_" + dateCompact
+		_, err = tablesDB.UpsertRow(config.DatabaseID, config.MurajaahLogsTableID,
+			rowid, tablesDB.WithUpsertRowData(map[string]any{
+				"userId":           user.ID,
+				"telegram_id":      user.TelegramID,
+				"date":             dateDisplay,
+				"pageRatings":      string(payload.PageRatings),
+				"tasmikRatings":    string(payload.TasmikRatings),
+				"repetitionTicks":  string(payload.RepetitionTicks),
+				"segregation":      string(payload.Segregation),
+			}))
+		if err != nil {
+			log.Printf("murajaah snapshot: upsert row %s: %v", rowid, err)
+			continue
+		}
+		log.Printf("murajaah snapshot: saved %s", rowid)
+	}
+
+	return nil
 }
 
 // SetData updates the data column on all rows matching telegram_id.
