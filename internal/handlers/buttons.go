@@ -133,7 +133,11 @@ func HandleButtons(b *tele.Bot) {
 		if err := appwrite.LogMurajaah(); err != nil {
 			return c.Send("Snapshot failed: " + err.Error())
 		}
-		return c.Send("Murajaah snapshot complete.")
+		return c.Send("Murajaah snapshot complete.", menu)
+	})
+
+	b.Handle("/time", func(c tele.Context) error {
+		return c.Send("The time is: "+time.Now().String(), menu)
 	})
 
 	b.Handle("/debug", func(c tele.Context) error {
