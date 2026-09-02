@@ -210,7 +210,7 @@ func LogMurajaah() error {
 			ID         string          `json:"$id"`
 			Data       json.RawMessage `json:"data"`
 			TelegramID int64           `json:"telegram_id"`
-			UserId     string          `json:"userId"`
+			UserID     string          `json:"userId"`
 		} `json:"rows"`
 	}
 	if err := res.Decode(&payload); err != nil {
@@ -222,22 +222,34 @@ func LogMurajaah() error {
 	dateDisplay := yesterday.Format(time.DateOnly)
 
 	for _, user := range payload.Rows {
+		data, err := parseData(user.Data)
+		if err != nil {
+			log.Printf("murajaah snapshot: parse data for %s: %v", user.ID, err)
+			continue
+		}
+
+		raw, err := json.Marshal(data)
+		if err != nil {
+			log.Printf("murajaah snapshot: marshal data for %s: %v", user.ID, err)
+			continue
+		}
+
 		var mp MurajaahPayload
-		if err := json.Unmarshal(user.Data, &mp); err != nil {
-			log.Printf("murajaah snapshot: decode data for %s: %v", user.ID, err)
+		if err := json.Unmarshal(raw, &mp); err != nil {
+			log.Printf("murajaah snapshot: decode murajaah for %s: %v", user.ID, err)
 			continue
 		}
 
 		rowid := "mur_" + user.ID + "_" + dateCompact
 		_, err = tablesDB.UpsertRow(config.DatabaseID, config.MurajaahLogsTableID,
 			rowid, tablesDB.WithUpsertRowData(map[string]any{
-				"userId":           user.ID,
-				"telegram_id":      user.TelegramID,
-				"date":             dateDisplay,
-				"pageRatings":      string(mp.PageRatings),
-				"tasmikRatings":    string(mp.TasmikRatings),
-				"repetitionTicks":  string(mp.RepetitionTicks),
-				"segregation":      string(mp.Segregation),
+				"userId":          user.ID,
+				"telegram_id":     user.TelegramID,
+				"date":            dateDisplay,
+				"pageRatings":     string(mp.PageRatings),
+				"tasmikRatings":   string(mp.TasmikRatings),
+				"repetitionTicks": string(mp.RepetitionTicks),
+				"segregation":     string(mp.Segregation),
 			}))
 		if err != nil {
 			log.Printf("murajaah snapshot: upsert row %s: %v", rowid, err)
