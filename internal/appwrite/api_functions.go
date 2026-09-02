@@ -205,27 +205,26 @@ func LogMurajaah() error {
 		return err
 	}
 
+	var payload struct {
+		Rows []struct {
+			ID         string          `json:"$id"`
+			Data       json.RawMessage `json:"data"`
+			TelegramID int64           `json:"telegram_id"`
+			UserId     string          `json:"userId"`
+		} `json:"rows"`
+	}
+	if err := res.Decode(&payload); err != nil {
+		return err
+	}
+
 	yesterday := time.Now().AddDate(0, 0, -1)
 	dateCompact := yesterday.Format("20060102")
 	dateDisplay := yesterday.Format(time.DateOnly)
 
-	for _, row := range res.Rows {
-		var item Row
-		item.ID = row.Id
-		if err := row.Decode(&item); err != nil {
-			continue
-		}
-
-		var payload MurajaahPayload
-		if err := json.Unmarshal(item.Data, &payload); err != nil {
-			continue
-		}
-
-		var user struct {
-			ID         string `json:"$id"`
-			TelegramID int64  `json:"telegram_id"`
-		}
-		if err := row.Decode(&user); err != nil {
+	for _, user := range payload.Rows {
+		var mp MurajaahPayload
+		if err := json.Unmarshal(user.Data, &mp); err != nil {
+			log.Printf("murajaah snapshot: decode data for %s: %v", user.ID, err)
 			continue
 		}
 
@@ -235,10 +234,10 @@ func LogMurajaah() error {
 				"userId":           user.ID,
 				"telegram_id":      user.TelegramID,
 				"date":             dateDisplay,
-				"pageRatings":      string(payload.PageRatings),
-				"tasmikRatings":    string(payload.TasmikRatings),
-				"repetitionTicks":  string(payload.RepetitionTicks),
-				"segregation":      string(payload.Segregation),
+				"pageRatings":      string(mp.PageRatings),
+				"tasmikRatings":    string(mp.TasmikRatings),
+				"repetitionTicks":  string(mp.RepetitionTicks),
+				"segregation":      string(mp.Segregation),
 			}))
 		if err != nil {
 			log.Printf("murajaah snapshot: upsert row %s: %v", rowid, err)
