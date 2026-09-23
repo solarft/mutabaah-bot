@@ -27,6 +27,8 @@ go.work.sum
 # env file
 .env
 
+R
+
 service-account.json
 
 # Editor/IDE

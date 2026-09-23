@@ -277,7 +277,9 @@ func SetData(telegramID int64, data map[string]any) error {
 	return err
 }
 
-// SetTelegramID updates the telegram_id column on all rows matching telegram_username.
+// SetTelegramID updates the telegram_id column on all rows matching telegram_username,
+// then backfills telegram_id onto that user's existing sunnah_logs and murajaah_logs
+// rows so pre-link history becomes visible to the bot's telegram_id queries.
 func SetTelegramID(username string, telegramID int64) error {
 	_, err := tablesDB.UpdateRows(
 		config.DatabaseID, config.UsersTableID,
@@ -286,5 +288,28 @@ func SetTelegramID(username string, telegramID int64) error {
 			query.Equal("telegram_username", username),
 		}),
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Backfill telegram_id onto log rows belonging to this user.
+	userID, err := GetUserID(telegramID)
+	if err != nil {
+		log.Printf("appwrite backfill: get user id for telegram_id %d: %v", telegramID, err)
+		return nil
+	}
+
+	for _, table := range []string{config.SunnahLogsTableID, config.MurajaahLogsTableID} {
+		if _, err := tablesDB.UpdateRows(
+			config.DatabaseID, table,
+			tablesDB.WithUpdateRowsData(map[string]any{"telegram_id": telegramID}),
+			tablesDB.WithUpdateRowsQueries([]string{
+				query.Equal("userId", userID),
+			}),
+		); err != nil {
+			log.Printf("appwrite backfill: update %s rows for user %s: %v", table, userID, err)
+		}
+	}
+
+	return nil
 }
