@@ -208,15 +208,15 @@ func HandleButtons(b *tele.Bot) {
 			return c.Send("Error: " + err.Error())
 		}
 
-		data, err := appwrite.GetData(c.Sender().ID)
+		/* data, err := appwrite.GetData(c.Sender().ID)
 		if err != nil {
 			if errors.Is(err, appwrite.ErrNotFound) {
 				return c.Send("Your username was not found. Please put your username in the website to finish account creation.", menu)
 			}
 			return c.Send("Error: " + err.Error())
-		}
+		} */
 
-		return c.Send(fmt.Sprintf("Hello @%s!\nYour data: %v", username, data), menu)
+		return c.Send(fmt.Sprintf("Hello @%s!", username), menu)
 	})
 
 	// On reply button pressed (message)
