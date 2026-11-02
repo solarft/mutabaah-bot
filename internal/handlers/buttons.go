@@ -27,7 +27,50 @@ var amalan = []string{
 	"Self-Reflection",
 }
 
-var userSelections = make(map[int64][]string)
+// pendingSelection is the checklist a user is editing before submitting. The
+// date guards against a selection left open across midnight being submitted as
+// the next day's practices.
+type pendingSelection struct {
+	date  string
+	items []string
+}
+
+var userSelections = make(map[int64]pendingSelection)
+
+// loadTodaySelection returns the practices persisted for today's log.
+func loadTodaySelection(telegramID int64) []string {
+	logs, err := appwrite.ListSunnahLogs(telegramID)
+	if err != nil {
+		fmt.Printf("Failed to get sunnah log: %v\n", err)
+		return nil
+	}
+	today := time.Now().Format(time.DateOnly)
+	for i := len(logs) - 1; i >= 0; i-- {
+		if logs[i].Date == today {
+			return logs[i].Items
+		}
+	}
+	return nil
+}
+
+// currentSelection returns the checklist being edited for a user. If the
+// in-memory copy is missing (bot restarted mid-edit) or belongs to a previous
+// day, it reloads today's persisted log so a stray tap cannot wipe the day's
+// practices and XP.
+func currentSelection(telegramID int64) []string {
+	today := time.Now().Format(time.DateOnly)
+	if sel, ok := userSelections[telegramID]; ok && sel.date == today {
+		return sel.items
+	}
+	return loadTodaySelection(telegramID)
+}
+
+func setSelection(telegramID int64, items []string) {
+	userSelections[telegramID] = pendingSelection{
+		date:  time.Now().Format(time.DateOnly),
+		items: items,
+	}
+}
 
 func buildSunnahChecklist(selected []string) (string, *tele.ReplyMarkup) {
 	completed := make(map[string]bool)
@@ -237,23 +280,17 @@ func HandleButtons(b *tele.Bot) {
 	})
 
 	b.Handle(&btnAddSunnah, func(c tele.Context) error {
-		logs, err := appwrite.ListSunnahLogs(c.Sender().ID)
-		if err != nil {
-			fmt.Printf("Failed to get sunnah log: %v\n", err)
-		}
-
-		var current []string
-		if len(logs) > 0 {
-			current = logs[len(logs)-1].Items
-		}
-		userSelections[c.Sender().ID] = current
+		// Only preselect today's log. Carrying yesterday's practices over would
+		// silently mark them done (and award XP) for a day they were not done.
+		current := loadTodaySelection(c.Sender().ID)
+		setSelection(c.Sender().ID, current)
 
 		text, markup := buildSunnahChecklist(current)
 		return c.Send(text, markup)
 	})
 
 	b.Handle(&sunnahBtnHandler, func(c tele.Context) error {
-		sel := userSelections[c.Sender().ID]
+		sel := currentSelection(c.Sender().ID)
 		activity := c.Data()
 
 		found := -1
@@ -268,7 +305,10 @@ func HandleButtons(b *tele.Bot) {
 		} else {
 			sel = append(sel, activity)
 		}
-		userSelections[c.Sender().ID] = sel
+		userSelections[c.Sender().ID] = pendingSelection{
+			date:  time.Now().Format(time.DateOnly),
+			items: sel,
+		}
 
 		text, markup := buildSunnahChecklist(sel)
 		return c.Edit(text, markup)
@@ -276,17 +316,26 @@ func HandleButtons(b *tele.Bot) {
 
 	submitBtnHandler := sunnahSelector.Data("Submit", "submit_sunnah")
 	b.Handle(&submitBtnHandler, func(c tele.Context) error {
-		sel := userSelections[c.Sender().ID]
+		sel := currentSelection(c.Sender().ID)
 		delete(userSelections, c.Sender().ID)
 
-		if _, err := appwrite.SaveSunnahSelections(c.Sender().ID, sel); err != nil {
+		_, xpDelta, err := appwrite.SaveSunnahSelections(c.Sender().ID, sel)
+		if err != nil {
+			if errors.Is(err, appwrite.ErrXPUpdate) {
+				return c.Send("Your log was saved, but the XP update failed. Please let the admin know.", menu)
+			}
 			return c.Send("Error saving: " + err.Error())
 		}
 
 		if err := c.Edit(buildChecklistText(sel)); err != nil {
 			return err
 		}
-		return c.Send("Done! Use the menu below to continue.", menu)
+
+		done := "Done!"
+		if xpDelta != 0 {
+			done = fmt.Sprintf("Done! %+d XP.", xpDelta)
+		}
+		return c.Send(done+" Use the menu below to continue.", menu)
 	})
 
 	b.Handle(&btnListSunnah, func(c tele.Context) error {
